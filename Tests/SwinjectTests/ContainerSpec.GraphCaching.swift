@@ -116,9 +116,17 @@ private class StorageSpy: InstanceStorage {
     var setterGraphs = [GraphIdentifier]()
     var getterGraphs = [GraphIdentifier]()
 
-    var instance: Any?
-    func setInstance(_: Any?, inGraph graph: GraphIdentifier) {
+    var _instance: Any?
+
+    func instance<T>() -> T? { _instance as? T }
+
+    func setInstance<T>(_ instance: T, inGraph graph: GraphIdentifier?) {
+        guard let graph = graph else { return }
         setterGraphs.append(graph)
+    }
+
+    func resetInstance() {
+        _instance = nil
     }
 
     func instance(inGraph graph: GraphIdentifier) -> Any? {

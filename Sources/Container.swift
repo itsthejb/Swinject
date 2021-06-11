@@ -76,7 +76,7 @@ public final class Container {
     public func resetObjectScope(_ objectScope: ObjectScopeProtocol) {
         services.values
             .filter { $0.objectScope === objectScope }
-            .forEach { $0.storage.instance = nil }
+            .forEach { $0.storage.resetInstance() }
 
         parent?.resetObjectScope(objectScope)
     }
@@ -324,7 +324,7 @@ extension Container: Resolver {
     private func persistedInstance<Service>(
         _: Service.Type, from entry: ServiceEntryProtocol, in graph: GraphIdentifier
     ) -> Service? {
-        if let instance = entry.storage.instance(inGraph: graph), let service = instance as? Service {
+        if let instance: Service.Type = entry.storage.instance(inGraph: graph), let service = instance as? Service {
             return service
         } else {
             return nil

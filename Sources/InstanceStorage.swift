@@ -4,36 +4,45 @@
 
 /// Storage provided by `ObjectScope`. It is used by `Container` to persist resolved instances.
 public protocol InstanceStorage: AnyObject {
-    var instance: Any? { get set }
+    func instance<T>() -> T?
     func graphResolutionCompleted()
-    func instance(inGraph graph: GraphIdentifier) -> Any?
-    func setInstance(_ instance: Any?, inGraph graph: GraphIdentifier)
+    func instance<T>(inGraph graph: GraphIdentifier) -> T?
+    func setInstance<T>(_ instance: T, inGraph graph: GraphIdentifier?)
+    func resetInstance()
 }
 
 extension InstanceStorage {
     public func graphResolutionCompleted() {}
-    public func instance(inGraph _: GraphIdentifier) -> Any? { return instance }
-    public func setInstance(_ instance: Any?, inGraph _: GraphIdentifier) { self.instance = instance }
+    public func instance<T>(inGraph _: GraphIdentifier) -> T? { return instance() }
+    func setInstance<T>(_ instance: T) { setInstance(instance, inGraph: nil) }
 }
 
 /// Persists storage during the resolution of the object graph
 public final class GraphStorage: InstanceStorage {
     private var instances = [GraphIdentifier: Weak<Any>]()
-    public var instance: Any?
+    private var _instance: Any?
 
     public init() {}
 
     public func graphResolutionCompleted() {
-        instance = nil
+        resetInstance()
     }
 
-    public func instance(inGraph graph: GraphIdentifier) -> Any? {
-        return instances[graph]?.value
+    public func resetInstance() {
+        _instance = nil
     }
 
-    public func setInstance(_ instance: Any?, inGraph graph: GraphIdentifier) {
-        self.instance = instance
+    public func instance<T>() -> T? {
+        _instance as? T
+    }
 
+    public func instance<T>(inGraph graph: GraphIdentifier) -> T? {
+        return instances[graph]?.value as? T
+    }
+
+    public func setInstance<T>(_ instance: T, inGraph graph: GraphIdentifier?) {
+        _instance = instance
+        guard let graph = graph else { return }
         if instances[graph] == nil { instances[graph] = Weak() }
         instances[graph]?.value = instance
     }
@@ -41,18 +50,21 @@ public final class GraphStorage: InstanceStorage {
 
 /// Persists stored instance until it is explicitly discarded.
 public final class PermanentStorage: InstanceStorage {
-    public var instance: Any?
+    private var _instance: Any?
+    public func instance<T>() -> T? { _instance as? T }
+    public func setInstance<T>(_ instance: T, inGraph graph: GraphIdentifier?) {
+        _instance = instance
+    }
+    public func resetInstance() { _instance = nil }
 
     public init() {}
 }
 
 /// Does not persist stored instance.
 public final class TransientStorage: InstanceStorage {
-    public var instance: Any? {
-        get { return nil }
-        set {} // swiftlint:disable:this unused_setter_value
-    }
-
+    public func instance<T>() -> T? { nil }
+    public func setInstance<T>(_ instance: T, inGraph graph: GraphIdentifier?) {}
+    public func resetInstance() {}
     public init() {}
 }
 
@@ -60,11 +72,11 @@ public final class TransientStorage: InstanceStorage {
 /// Persists reference types as long as there are strong references to given instance.
 public final class WeakStorage: InstanceStorage {
     private var _instance = Weak<Any>()
-
-    public var instance: Any? {
-        get { return _instance.value }
-        set { _instance.value = newValue }
+    public func instance<T>() -> T? { _instance.value as? T }
+    public func setInstance<T>(_ instance: T, inGraph graph: GraphIdentifier?) {
+        _instance.value = instance
     }
+    public func resetInstance() { _instance.value = nil }
 
     public init() {}
 }
@@ -74,15 +86,12 @@ public final class WeakStorage: InstanceStorage {
 public final class CompositeStorage: InstanceStorage {
     private let components: [InstanceStorage]
 
-    public var instance: Any? {
-        get {
-            #if swift(>=4.1)
-                return components.compactMap { $0.instance }.first
-            #else
-                return components.flatMap { $0.instance }.first
-            #endif
-        }
-        set { components.forEach { $0.instance = newValue } }
+    public func instance<T>() -> T? {
+        #if swift(>=4.1)
+        return components.compactMap { $0.instance() }.first
+        #else
+        return components.flatMap { $0.instance() }.first
+        #endif
     }
 
     public init(_ components: [InstanceStorage]) {
@@ -93,8 +102,12 @@ public final class CompositeStorage: InstanceStorage {
         components.forEach { $0.graphResolutionCompleted() }
     }
 
-    public func setInstance(_ instance: Any?, inGraph graph: GraphIdentifier) {
+    public func setInstance<T>(_ instance: T, inGraph graph: GraphIdentifier?) {
         components.forEach { $0.setInstance(instance, inGraph: graph) }
+    }
+
+    public func resetInstance() {
+        components.forEach { $0.resetInstance() }
     }
 
     public func instance(inGraph graph: GraphIdentifier) -> Any? {

@@ -20,3 +20,26 @@ extension ObjectScope {
     public static let weak = ObjectScope(storageFactory: WeakStorage.init, description: "weak",
                                          parent: ObjectScope.graph)
 }
+/*
+extension Container {
+
+    var scope: ObjectScope {
+        ObjectScope(
+            storageFactory: { ContainerStorage(container: self) },
+            description: "container storage"
+        )
+    }
+}
+
+private final class ContainerStorage: InstanceStorage {
+
+    var instance: Any?
+    
+    let container: Container
+
+    init(container: Container) {
+        self.container = container
+    }
+}
+*/
+

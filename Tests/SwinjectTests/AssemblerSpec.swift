@@ -20,7 +20,7 @@ class AssemblerSpec: QuickSpec {
 
                 let sushi = assembler.resolver.resolve(Food.self)
                 expect(sushi).to(beNil())
-            }
+            }   
 
             it("can assembly a container with nil parent") {
                 let assembler = Assembler(parentAssembler: nil)

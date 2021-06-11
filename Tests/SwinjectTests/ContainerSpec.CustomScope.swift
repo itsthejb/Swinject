@@ -32,14 +32,14 @@ class ContainerSpec_CustomScope: QuickSpec {
                 container.register(Int.self) { _ in 42 }.inObjectScope(custom)
                 _ = container.resolve(Int.self)
 
-                expect(storage.instance as? Int) == 42
+                expect(storage.instance() as Int?) == 42
             }
             it("returns stored instance if storage is not empty") {
                 let storage = FakeStorage()
                 let custom = ObjectScope(storageFactory: { storage })
 
                 container.register(Int.self) { _ in 0 }.inObjectScope(custom)
-                storage.instance = 42
+                storage.setInstance(42)
                 let result = container.resolve(Int.self)
 
                 expect(result) == 42
@@ -51,10 +51,10 @@ class ContainerSpec_CustomScope: QuickSpec {
                 let custom = ObjectScope(storageFactory: { storage })
 
                 container.register(Int.self) { _ in 0 }.inObjectScope(custom)
-                storage.instance = 42
+                storage.setInstance(42)
                 container.resetObjectScope(custom)
 
-                expect(storage.instance).to(beNil())
+                expect(storage.instance() as Int?).to(beNil())
             }
             it("does not remove instances from other scopes") {
                 let storage = FakeStorage()
@@ -62,10 +62,10 @@ class ContainerSpec_CustomScope: QuickSpec {
                 let custom2 = ObjectScope(storageFactory: FakeStorage.init)
 
                 container.register(Int.self) { _ in 0 }.inObjectScope(custom1)
-                storage.instance = 42
+                storage.setInstance(42)
                 container.resetObjectScope(custom2)
 
-                expect(storage.instance as? Int) == 42
+                expect(storage.instance() as Int?) == 42
             }
             it("removes instance from service registered in parent container") {
                 let storage = FakeStorage()
@@ -73,15 +73,18 @@ class ContainerSpec_CustomScope: QuickSpec {
                 let child = Container(parent: container)
 
                 container.register(Int.self) { _ in 0 }.inObjectScope(custom)
-                storage.instance = 42
+                storage.setInstance(42)
                 child.resetObjectScope(custom)
 
-                expect(storage.instance).to(beNil())
+                expect(storage.instance() as Int?).to(beNil())
             }
         }
     }
 }
 
 private class FakeStorage: InstanceStorage {
-    var instance: Any?
+    func setInstance<T>(_ instance: T, inGraph graph: GraphIdentifier?) {}
+    func instance<T>() -> T? { nil }
+    func resetInstance() {}
+    var _instance: Any?
 }
